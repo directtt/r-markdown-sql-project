@@ -1,0 +1,2 @@
+"0","SELECT AVG(arr_delay_new) AS [avg_delay]
+FROM [dbad_flights].[dbo].[Flight_delays];"

@@ -1,0 +1,8 @@
+"0","weekdays %>%"
+"0","mutate_if(is.numeric, ~round(., 3)) %>%   "
+"0","ggplot(aes(x = reorder(weekday_name, -avg_delay), y = avg_delay)) +"
+"0","  geom_bar(stat = ""identity"", fill = ""steelblue"", col = 'black') +"
+"0","  geom_text(aes(label = avg_delay), vjust = -0.3, size = 3.5) +"
+"0","  xlab('Weekday name') +"
+"0","  ylab('Average delay') +"
+"0","  theme_minimal()"

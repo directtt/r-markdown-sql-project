@@ -1,0 +1,4 @@
+"2","Błąd w poleceniu '(function (classes, fdef, mtable) ':
+  unable to find an inherited method for function ‘sqlParseVariables’ for signature ‘""Microsoft SQL Server""’
+"
+"2","Failed to execute SQL chunk"

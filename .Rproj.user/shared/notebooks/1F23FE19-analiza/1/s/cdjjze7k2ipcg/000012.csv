@@ -1,0 +1,5 @@
+"0","SELECT  AVG(D.arr_delay_new) AS [avg_delay], D.origin, D.dest
+FROM    [dbad_flights].[dbo].[Flight_delays] D
+WHERE   D.origin IN ('MDW', 'ORD') AND D.dest IN ('SFO', 'SJC', 'OAK') AND D.crs_dep_time >= 1400 
+GROUP   BY D.origin, D.dest
+ORDER BY AVG(D.arr_delay_new) DESC;"

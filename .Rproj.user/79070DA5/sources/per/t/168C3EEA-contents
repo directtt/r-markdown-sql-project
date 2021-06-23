@@ -1,0 +1,212 @@
+---
+title: 'Bazy Danych, Proj. analityczny: linie lotnicze'
+author: "Jędrzej Rybczyński"
+date: "17.04.2021"
+output:
+  pdf_document: default
+---
+
+```{r include=FALSE}
+library(tidyverse)
+dw <- config::get("datawmi")
+
+con <- DBI::dbConnect(odbc::odbc(),
+                      Driver   = dw$driver,
+                      Server   = dw$server,
+                      Database = dw$database,
+                      UID      = dw$uid,
+                      PWD      = dw$pwd,
+                      Port     = dw$port)
+```
+
+
+## 1. Jakie było średnie opóźnienie przylotu?
+```{sql connection=con}
+SELECT AVG(arr_delay_new) AS [avg_delay]
+FROM [dbad_flights].[dbo].[Flight_delays];
+```
+
+## 2. Jakie było maksymalne opóźnienie przylotu?
+```{sql echo=TRUE, connection=con}
+SELECT MAX(arr_delay_new) AS [max_delay]
+FROM [dbad_flights].[dbo].[Flight_delays];
+```
+## 3. Który lot miał największe opóźnienie przylotu?
+```{sql echo=TRUE, connection=con}
+SELECT arr_delay_new, fl_date, carrier, origin_city_name, dest_city_name
+FROM [dbad_flights].[dbo].[Flight_delays]
+WHERE arr_delay_new = (SELECT MAX(arr_delay_new)
+                       FROM [dbad_flights].[dbo].[Flight_delays])
+```
+
+\newpage
+
+## 4. Które dni tygodnia są najgorsze do podróżowania?
+```{sql echo=TRUE, connection=con, output.var = "weekdays"}
+SELECT AVG(arr_delay_new) AS [avg_delay], W.weekday_name
+FROM [dbad_flights].[dbo].[Flight_delays] D
+INNER JOIN [dbad_flights].[dbo].[Weekdays] W
+        ON D.day_of_week = W.weekday_id
+GROUP BY W.weekday_name
+ORDER BY avg_delay DESC;
+```
+
+```{sql echo=FALSE, connection=con}
+SELECT AVG(arr_delay_new) AS [avg_delay], W.weekday_name
+FROM [dbad_flights].[dbo].[Flight_delays] D
+INNER JOIN [dbad_flights].[dbo].[Weekdays] W
+        ON D.day_of_week = W.weekday_id
+GROUP BY W.weekday_name
+ORDER BY avg_delay DESC;
+```
+
+```{r echo=FALSE, fig.align = 'center'}
+weekdays %>%
+mutate_if(is.numeric, ~round(., 3)) %>%   
+ggplot(aes(x = reorder(weekday_name, -avg_delay), y = avg_delay)) +
+  geom_bar(stat = "identity", fill = "steelblue", col = 'black') +
+  geom_text(aes(label = avg_delay), vjust = -0.3, size = 3.5) +
+  xlab('Weekday name') +
+  ylab('Average delay') +
+  theme_minimal()
+```
+
+\newpage
+
+## 5. Które linie lotnicze latające z San Francisco (SFO) mają najmniejsze opóźnienia przylotu?
+```{sql echo=TRUE, connection=con, output.var="sfo"}
+SELECT *
+FROM (SELECT AVG(D.arr_delay_new) as [avg_delay], A.airline_name
+        FROM [dbad_flights].[dbo].[Flight_delays] D   
+        INNER JOIN [dbad_flights].[dbo].[Airlines] A
+                ON A.airline_id = D.airline_id
+        GROUP BY A.airline_name) AS T
+WHERE T.airline_name IN (SELECT A.airline_name
+                         FROM   [dbad_flights].[dbo].[Airlines] A
+                         WHERE  A.airline_name = T.airline_name
+                                AND A.airline_id IN (SELECT D.airline_id
+                                                     FROM   [dbad_flights].[dbo].[Flight_delays] D   
+                                                     WHERE  D.origin = 'SFO'
+                                                            AND A.airline_id = D.airline_id))
+ORDER BY T.avg_delay DESC;
+```
+
+```{sql echo=FALSE, connection=con}
+SELECT *
+FROM (SELECT AVG(D.arr_delay_new) as [avg_delay], A.airline_name
+        FROM [dbad_flights].[dbo].[Flight_delays] D   
+        INNER JOIN [dbad_flights].[dbo].[Airlines] A
+                ON A.airline_id = D.airline_id
+        GROUP BY A.airline_name) AS T
+WHERE T.airline_name IN (SELECT A.airline_name
+                         FROM   [dbad_flights].[dbo].[Airlines] A
+                         WHERE  A.airline_name = T.airline_name
+                                AND A.airline_id IN (SELECT D.airline_id
+                                                     FROM   [dbad_flights].[dbo].[Flight_delays] D   
+                                                     WHERE  D.origin = 'SFO'
+                                                            AND A.airline_id = D.airline_id))
+ORDER BY T.avg_delay DESC;
+```
+
+```{r echo=FALSE, out.width="77%", fig.align = 'center'}
+sfo %>%
+mutate_if(is.numeric, ~round(., 3)) %>%   
+ggplot(aes(x = reorder(airline_name, avg_delay), y = avg_delay)) +
+  geom_bar(stat = "identity", fill = "steelblue", col = 'black') +
+  geom_text(aes(label = avg_delay), vjust = 0.3, hjust = 1.1, size = 3.5, col = "white") +
+  xlab('Airline name') +
+  ylab('Average delay') +
+  coord_flip() +
+  theme_minimal()
+```
+
+\newpage
+
+## 6. Jaka część linii lotniczych ma regularne opóźnienia, tj. jej lot ma średnio co najmniej 10 min. opóźnienia?
+```{sql echo=TRUE, connection=con}
+SELECT  CAST(COUNT(TEMP.avg_delay1) AS DECIMAL) / CAST(COUNT(TEMP1.avg_delay2) AS DECIMAL)
+        AS [late_propotion]
+FROM   (SELECT AVG(D.arr_delay_new) as [avg_delay1]
+        FROM   [dbad_flights].[dbo].[Flight_delays] D
+        GROUP BY airline_id
+        HAVING AVG(D.arr_delay_new) >= 10) AS TEMP
+RIGHT OUTER JOIN (SELECT AVG(D.arr_delay_new) as [avg_delay2]
+                  FROM   [dbad_flights].[dbo].[Flight_delays] D
+                  GROUP BY airline_id) TEMP1
+              ON  TEMP.avg_delay1 = TEMP1.avg_delay2;
+```
+## 7. Jak opóźnienia wylotów wpływają na opóźnienia przylotów?
+```{sql echo=TRUE, connection=con}
+SELECT (AVG(arr_delay_new * dep_delay_new) - (AVG(arr_delay_new) * AVG(dep_delay_new)))
+        / (STDEVP(arr_delay_new) * STDEVP(dep_delay_new)) AS [Pearsons r]
+FROM   [dbad_flights].[dbo].[Flight_delays]
+```
+\newpage
+
+## 8. Która linia lotnicza miała największy wzrost (różnica) średniego opóźnienia przylotów w ostatnim tygodniu miesiąca, tj. między 1-23 a 24-31 lipca?
+```{sql echo=TRUE, connection=con}
+WITH CTE_Delay_Increase
+AS
+(
+    SELECT T1.airline_name, MAX(T2.delay - T1.delay1) AS [difference]
+       FROM  (SELECT AVG(D.arr_delay_new) as [delay1], A1.airline_name
+              FROM   [dbad_flights].[dbo].[Flight_delays] D
+              INNER JOIN [dbad_flights].[dbo].[Airlines] A1
+                      ON  D.airline_id = A1.airline_id AND D.day_of_month >= 1
+                      AND D.day_of_month <= 23
+              GROUP BY A1.airline_name) T1
+       INNER JOIN (SELECT AVG(D.arr_delay_new) as [delay], A.airline_name
+                   FROM   [dbad_flights].[dbo].[Flight_delays] D
+                   INNER JOIN [dbad_flights].[dbo].[Airlines] A
+                           ON  D.airline_id = A.airline_id AND D.day_of_month >= 24
+                           AND D.day_of_month <= 31
+                   GROUP BY A.airline_name) T2
+               ON  T1.airline_name = T2.airline_name
+       GROUP BY T1.airline_name
+)
+SELECT C.difference AS [delay_increase], C.airline_name
+FROM   CTE_Delay_Increase C
+WHERE  C.difference = (SELECT MAX(C.difference)
+                       FROM CTE_Delay_Increase C);
+
+```
+
+
+## 9. Które linie lotnicze latają zarówno na trasie SFO → PDX (Portland), jak i SFO → EUG (Eugene)?
+```{sql echo=TRUE, connection=con}
+SELECT DISTINCT A1.airline_name
+FROM    [dbad_flights].[dbo].[Flight_delays] D
+INNER JOIN [dbad_flights].[dbo].[Airlines] A1
+        ON D.airline_id = A1.airline_id AND D.origin = 'SFO' AND D.dest = 'PDX'
+INNER JOIN [dbad_flights].[dbo].[Flight_delays] D1
+        ON D1.airline_id = A1.airline_id AND D1.origin = 'SFO' AND D1.dest = 'EUG'
+```
+## 10. Jak najszybciej dostać się z Chicago do Stanfordu, zakładając wylot po 14:00 czasu lokalnego?
+```{sql echo=TRUE, connection=con, output.var="stanford"}
+SELECT  AVG(D.arr_delay_new) AS [avg_delay], D.origin, D.dest
+FROM    [dbad_flights].[dbo].[Flight_delays] D
+WHERE   D.origin IN ('MDW', 'ORD') AND D.dest IN ('SFO', 'SJC', 'OAK') AND D.crs_dep_time >= 1400 
+GROUP   BY D.origin, D.dest
+ORDER BY AVG(D.arr_delay_new) DESC;
+```
+
+```{sql echo=FALSE, connection=con}
+SELECT  AVG(D.arr_delay_new) AS [avg_delay], D.origin, D.dest
+FROM    [dbad_flights].[dbo].[Flight_delays] D
+WHERE   D.origin IN ('MDW', 'ORD') AND D.dest IN ('SFO', 'SJC', 'OAK') AND D.crs_dep_time >= 1400 
+GROUP   BY D.origin, D.dest
+ORDER BY AVG(D.arr_delay_new) DESC;
+```
+
+```{r echo=FALSE, fig.align = 'center'}
+stanford %>%
+mutate_if(is.numeric, ~round(., 3)) %>%   
+ggplot(aes(x = origin, y = avg_delay, fill = dest)) +
+  geom_bar(stat = "identity", position = position_dodge(), col = 'black') +
+  geom_text(aes(label=avg_delay), vjust=1.6, color="black",
+            position = position_dodge(0.9), size=3.5) +
+  scale_fill_brewer(palette="Blues") +
+  xlab('Origin') +
+  ylab('Average delay') +
+  theme_minimal()
+```

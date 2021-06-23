@@ -1,0 +1,3 @@
+"0","SELECT (AVG(arr_delay_new * dep_delay_new) - (AVG(arr_delay_new) * AVG(dep_delay_new)))
+        / (STDEVP(arr_delay_new) * STDEVP(dep_delay_new)) AS [Pearsons r]
+FROM   [dbad_flights].[dbo].[Flight_delays]"

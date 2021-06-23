@@ -1,0 +1,6 @@
+"0","SELECT DISTINCT A1.airline_name
+FROM    [dbad_flights].[dbo].[Flight_delays] D
+INNER JOIN [dbad_flights].[dbo].[Airlines] A1
+        ON D.airline_id = A1.airline_id AND D.origin = 'SFO' AND D.dest = 'PDX'
+INNER JOIN [dbad_flights].[dbo].[Flight_delays] D1
+        ON D1.airline_id = A1.airline_id AND D1.origin = 'SFO' AND D1.dest = 'EUG'"

@@ -1,0 +1,24 @@
+"0","WITH CTE_Delay_Increase
+AS
+(
+    SELECT T1.airline_name, MAX(T2.delay - T1.delay1) AS [difference]
+       FROM  (SELECT AVG(D.arr_delay_new) as [delay1], A1.airline_name
+              FROM   [dbad_flights].[dbo].[Flight_delays] D
+              INNER JOIN [dbad_flights].[dbo].[Airlines] A1
+                      ON  D.airline_id = A1.airline_id AND D.day_of_month >= 1
+                      AND D.day_of_month <= 23
+              GROUP BY A1.airline_name) T1
+       INNER JOIN (SELECT AVG(D.arr_delay_new) as [delay], A.airline_name
+                   FROM   [dbad_flights].[dbo].[Flight_delays] D
+                   INNER JOIN [dbad_flights].[dbo].[Airlines] A
+                           ON  D.airline_id = A.airline_id AND D.day_of_month >= 24
+                           AND D.day_of_month <= 31
+                   GROUP BY A.airline_name) T2
+               ON  T1.airline_name = T2.airline_name
+       GROUP BY T1.airline_name
+)
+SELECT C.difference AS [delay_increase], C.airline_name
+FROM   CTE_Delay_Increase C
+WHERE  C.difference = (SELECT MAX(C.difference)
+                       FROM CTE_Delay_Increase C);
+"

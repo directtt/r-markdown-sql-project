@@ -1,0 +1,9 @@
+"0","SELECT  CAST(COUNT(TEMP.avg_delay1) AS DECIMAL) / CAST(COUNT(TEMP1.avg_delay2) AS DECIMAL) AS [late_propotion]
+FROM   (SELECT AVG(D.arr_delay_new) as [avg_delay1]
+        FROM   [dbad_flights].[dbo].[Flight_delays] D
+        GROUP BY airline_id
+        HAVING AVG(D.arr_delay_new) >= 10) AS TEMP
+RIGHT OUTER JOIN (SELECT AVG(D.arr_delay_new) as [avg_delay2]
+                  FROM   [dbad_flights].[dbo].[Flight_delays] D
+                  GROUP BY airline_id) TEMP1
+              ON  TEMP.avg_delay1 = TEMP1.avg_delay2;"

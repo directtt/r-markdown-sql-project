@@ -1,0 +1,4 @@
+"0","SELECT arr_delay_new, fl_date, carrier, origin_city_name, dest_city_name
+FROM [dbad_flights].[dbo].[Flight_delays]
+WHERE arr_delay_new = (SELECT MAX(arr_delay_new)
+                       FROM [dbad_flights].[dbo].[Flight_delays])"

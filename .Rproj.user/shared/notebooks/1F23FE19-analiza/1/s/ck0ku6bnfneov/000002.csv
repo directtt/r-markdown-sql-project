@@ -1,0 +1,6 @@
+"0","SELECT AVG(arr_delay_new) AS [avg_delay], W.weekday_name
+FROM [dbad_flights].[dbo].[Flight_delays] D
+INNER JOIN [dbad_flights].[dbo].[Weekdays] W
+        ON D.day_of_week = W.weekday_id
+GROUP BY W.weekday_name
+ORDER BY avg_delay DESC;"

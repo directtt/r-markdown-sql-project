@@ -1,0 +1,9 @@
+default:
+    datawmi:
+        driver: "SQL Server" 
+        server: "mssql-2017.labs.wmi.amu.edu.pl"
+        uid: "dbad_s456532"
+        pwd: "Fyd3HM1SlN"  
+        port: 1433
+        database: "dbad_flights"
+  
